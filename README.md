@@ -11,7 +11,7 @@ We will be using the architecture diagram above to create a 3-tier VPC. In the f
 
 ### I. Create a 3-tier VPC
 
-    a. From the management console, first, select the region to create the VPC, in our case, it will be **“us-east-1”**
+    a) From the management console, first, select the region to create the VPC, in our case, it will be **“us-east-1”**
     b. In the Search box, type VPC and select VPC under services
     c. click on **Create VPC**
     d. Give a name (we will be using **"My VPC"**)
