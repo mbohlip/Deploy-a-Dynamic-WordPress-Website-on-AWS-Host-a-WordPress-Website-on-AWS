@@ -1,6 +1,6 @@
 # Deploy a Dynamic WordPress Website on AWS (Host a WordPress Website on AWS)
 
-![3-tier VPC Architecture](https://github.com/mbohlip/Deploy-a-Dynamic-WordPress-Website-on-AWS-Host-a-WordPress-Website-on-AWS-/assets/125835309/63e0ebaf-7e88-4926-8e3e-1fe5eab71ec6)
+![3-tier VPC Architecture](image.png)
 `3-tier VPC Architecture`
 
 Welcome Cloud advocates to another journey of cloud exploration using the provider AWS. In today’s project, we will use AWS management console to deploy a dynamic WordPress website. We are going to use various AWS services (3-tier vpc architecture from scratch with public and private subnets, security groups, NAT gateways, ec2 instances, rds, application load balancer, route53, auto scaling group, certificate manager, efs, and more)
@@ -9,39 +9,27 @@ Welcome Cloud advocates to another journey of cloud exploration using the provid
 
 We will be using the architecture diagram above to create a 3-tier VPC. In the first tier, we will have public subnet which will hold resources such as NAT Gateway, Application Load balancer. In the second tier, we will have private subnets containing resources such as our web server and in the third tier, we will have other private subnets which will have the RDS database. We will duplicate these subnets across multiple availability zones (AZ) for high availability and fault tolerance. Resources in our VPC will access the internet via internet and NAT gateways using route tables.
 
-I — Create a 3-tier VPC
+### I. Create a 3-tier VPC
 
-a) From management console, we select the region to create the VPC, in our case, it will be “us-east-1”
+      a. From the management console, first, select the region to create the VPC, in our case, it will be **“us-east-1”**
+      b. In the Search box, type VPC and select VPC under services
+      c. click on **Create VPC**
+      d. Give a name (we will be using **"My VPC"**)
+      e. In the IPv4 CIDR field, enter an IP address (this is a classless inter-domain routing IP address range), as per our architecture, it will be “**20.1.0.0/16**”
+      f. We will leave IPv6 (**No IPv6 CIDR block**) and tenancy (**Default**) unchanged
+      g. Click **create VPC**
+      h. You can view your VPC by using the filter box and selecting your VPC name. ![View VPC](image.png)
 
-b) In the Search box, type VPC and select VPC under services
+### II. Enable DNS Hostname in your VPC (this will enable it to resolve any domain name specified in a private hosted zone in Route 53)
 
-c) Click on VPC, then click on Create VPC
+      a. Select the VPC created in (I) above
+      b. Goto Actions -> Edit DNS hostnames
+      c. Check “Enable DNS hostnames” box and save changes
 
-d) Enter a name (we will be using “My VPC”)
+### III. Create an Internet gateway for your VPC
 
-e) In the IPv4 CIDR field, enter an IP address (this is a classless inter-domain routing IP address range), as per our architecture, it will be “20.1.0.0/16”
-
-f) We will leave IPv6 (No IPv6 CIDR block) and tenancy (Default) unchanged
-
-g) Click create VPC
-
-h) You can view your VPC by using the filter box and selecting your VPC name.
-
-
-II — Enable DNS Hostname in your VPC (this will enable it to resolve any domain name specified in a private hosted zone in Route 53)
-
-a) Select the VPC you just created
-
-b) Goto Actions -> Edit DNS hostnames
-
-c) Check “Enable DNS hostnames” box and save changes
-
-
-III — Create an Internet gateway for your VPC
-
-a) On the VPC page, on the left, select Internet Gateways -> Create internet gateway
-
-b) Give it a name (we will use “My Internet Gateway”) and click Create internet gateway
+      a. On the VPC page, on the left, select Internet Gateways -> Create internet gateway
+      b. Give it a name (we will use “My Internet Gateway”) and click Create internet gateway
 
 
 IV — Attach the internet gateway created in (III) above to your VPC (this allows instances in the VPC to communicate with the internet)
