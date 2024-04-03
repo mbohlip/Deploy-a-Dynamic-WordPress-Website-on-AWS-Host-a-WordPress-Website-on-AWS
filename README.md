@@ -11,14 +11,14 @@ We will be using the architecture diagram above to create a 3-tier VPC. In the f
 
 ### I. Create a 3-tier VPC
 
-      a. From the management console, first, select the region to create the VPC, in our case, it will be **“us-east-1”**
-      b. In the Search box, type VPC and select VPC under services
-      c. click on **Create VPC**
-      d. Give a name (we will be using **"My VPC"**)
-      e. In the IPv4 CIDR field, enter an IP address (this is a classless inter-domain routing IP address range), as per our architecture, it will be “**20.1.0.0/16**”
-      f. We will leave IPv6 (**No IPv6 CIDR block**) and tenancy (**Default**) unchanged
-      g. Click **create VPC**
-      h. You can view your VPC by using the filter box and selecting your VPC name. ![View VPC](image.png)
+a. From the management console, first, select the region to create the VPC, in our case, it will be **“us-east-1”**
+b. In the Search box, type VPC and select VPC under services
+c. click on **Create VPC**
+d. Give a name (we will be using **"My VPC"**)
+e. In the IPv4 CIDR field, enter an IP address (this is a classless inter-domain routing IP address range), as per our architecture, it will be “**20.1.0.0/16**”
+f. We will leave IPv6 (**No IPv6 CIDR block**) and tenancy (**Default**) unchanged
+g. Click **create VPC**
+h. You can view your VPC by using the filter box and selecting your VPC name. ![View VPC](image.png)
 
 ### II. Enable DNS Hostname in your VPC (this will enable it to resolve any domain name specified in a private hosted zone in Route 53)
 
