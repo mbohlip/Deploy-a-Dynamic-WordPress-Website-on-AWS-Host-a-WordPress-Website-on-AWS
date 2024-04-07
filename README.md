@@ -261,55 +261,60 @@ For the step-by-step process to create an EICE and ssh to the EC2 instance, clic
 
 ### I. After we have ssh into the setup server, we will run the following commands:
 
-  1. Create the html directory and mount the efs to it
-  Before running these commands, we need to update the mount information of our EFS;
-  From EFS page -> select efs ID -> click attach, under ***using the NFS client***, copy the mount information ***fs-0b37356f0b8d8f269.efs.us-east-1.amazonaws.com*** (yours will be different from mine) and replace it in the fourth command line below,
-      sudo su 
-      yum update -y 
-      mkdir -p /var/www/html
-      sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport *fs-0b37356f0b8d8f269.efs us-east-1.amazonaws.com*:/ /var/www/html
+Before running these commands, we need to update the mount information of our EFS;
+From EFS page -> select efs ID -> click attach, under ***using the NFS client***, copy the mount information ***fs-0b37356f0b8d8f269.efs.us-east-1.amazonaws.com*** (yours will be different from mine) and replace it in the fourth command line below
 
-  2. install apache  
-      sudo yum install -y httpd httpd-tools mod_ssl 
-      sudo systemctl enable httpd
-      sudo systemctl start httpd
+```bash
+  # Create the html directory and mount the efs to it
+  sudo su 
+  yum update -y 
+  mkdir -p /var/www/html
+  sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport fs-0b37356f0b8d8f269.efs us-east-1.amazonaws.com:/ /var/www/html
 
-  3. install php 7.4 
-      sudo yum clean metadata 
-      sudo yum install php php-common php-pear -y 
-      sudo yum install php-{cgi,curl,mbstring,gd,mysqlnd,gettext,json,xml,fpm,intl,zip} -y 
+  # install apache  
+  sudo yum install -y httpd httpd-tools mod_ssl 
+  sudo systemctl enable httpd
+  sudo systemctl start httpd
+
+  # install php 7.4 
+  sudo yum clean metadata 
+  sudo yum install php php-common php-pear -y 
+  sudo yum install php-{cgi,curl,mbstring,gd,mysqlnd,gettext,json,xml,fpm,intl,zip} -y 
  
-  4. install mysql5.7 
-      sudo rpm -Uvh https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
-      sudo rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022 
-      sudo yum install mysql-community-server -y 
-      sudo systemctl enable mysqld 
-      sudo systemctl start mysqld 
+  # install mysql5.7 
+  sudo rpm -Uvh https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm 
+  sudo rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022 
+  sudo yum install mysql-community-server -y 
+  sudo systemctl enable mysqld 
+  sudo systemctl start mysqld 
  
-  5. set permissions 
-      sudo usermod -a -G apache ec2-user 
-      sudo chown -R ec2-user:apache /var/www 
-      sudo chmod 2775 /var/www && find /var/www -type d -exec sudo chmod 2775 {} \; 
-      sudo find /var/www -type f -exec sudo chmod 0664 {} \; 
-      chown apache:apache -R /var/www/html  
+  # set permissions 
+  sudo usermod -a -G apache ec2-user 
+  sudo chown -R ec2-user:apache /var/www 
+  sudo chmod 2775 /var/www && find /var/www -type d -exec sudo chmod 2775 {} \; 
+  sudo find /var/www -type f -exec sudo chmod 0664 {} \; 
+  chown apache:apache -R /var/www/html  
  
-  6. download wordpress files 
-      wget https://wordpress.org/latest.tar.gz 
-      tar -xzf latest.tar.gz 
-      cp -r wordpress/* /var/www/html/ 
+  # download wordpress files 
+  wget https://wordpress.org/latest.tar.gz 
+  tar -xzf latest.tar.gz 
+  cp -r wordpress/* /var/www/html/ 
  
-  7. create the wp-config.php file 
-      cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php 
+  # create the wp-config.php file 
+  cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php 
  
-  8. edit the wp-config.php file 
-      nano /var/www/html/wp-config.php
-      Once in the editor, we will update the following information
-      # DB_NAME (insert “applicationdb”), DB_USER (insert “test24”), DB_PASSWORD (insert “Test1234”)
-      # DB_HOST (insert the RDS endpoint, from the RDS console -> Connectivity & security tab -> copy the endpoint)
-      # to exit the editor, on your keyboard, press “CTRL+X”, then “Y”, then “Enter”
+  # edit the wp-config.php file 
+  nano /var/www/html/wp-config.php
+  # Once in the editor, we will update the following information
+  DB_NAME: applicationdb
+  DB_USER: test24
+  DB_PASSWORD: Test1234
+  DB_HOST: # (insert the RDS endpoint, from the RDS console -> Connectivity & security tab -> copy the endpoint)
+  # to exit the editor, on your keyboard, press “CTRL+X”, then “Y”, then “Enter”
  
-#9. restart the webserver 
-service httpd restart
+  # restart the webserver 
+  service httpd restart
+```
 II — Configure WordPress
 
 a) Once we have restarted the Apache Web server, from the EC2 (setup server) management console, copy the public IPv4 address and paste in a new browser page (this will enable us finish WordPress installation)
