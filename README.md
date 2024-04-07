@@ -9,7 +9,7 @@ Welcome Cloud advocates to another journey of cloud exploration using the provid
 
 We will be using the architecture diagram above to create a 3-tier VPC. In the first tier, we will have public subnet which will hold resources such as NAT Gateway, Application Load balancer. In the second tier, we will have private subnets containing resources such as our web server and in the third tier, we will have other private subnets which will have the RDS database. We will duplicate these subnets across multiple availability zones (AZ) for high availability and fault tolerance. Resources in our VPC will access the internet via internet and NAT gateways using route tables.
 
-### I. Create a 3-tier VPC
+### I. Create a Custom 3-tier VPC
   1. From the management console, first, select the region to create the VPC, in our case, it will be ***us-east-1***
   2. In the Search box, type VPC and select VPC under services
   3. click on ***Create VPC***
@@ -43,209 +43,140 @@ We will be using the architecture diagram above to create a 3-tier VPC. In the f
   7. Repeat steps (a) to (e) and create the 2nd subnet with name as ***Public Subnet AZ2***, availability zone as ***us-east-1b*** and IPv4 CIDR as ***20.1.1.0/24***
   8. Filter by our VPC to see the 2 subnets just created ![alt text](image-5.png)
 
-VI — Enable the Auto-assign IP settings for the 2 public subnets (this enables any instance launch in these subnets to be assigned a public IPv4 address
+### VI. Enable the Auto-assign IP settings for the 2 public subnets (this enables any instance launched in these subnets to be assigned a public IPv4 address
+  1. Select the first subnet (*Public Subnet AZ1*)
+  2. Goto to Actions -> Edit subnet settings
+  3. Under Auto-assign IP settings, enable the check box
+  4. Scroll down and click save
+  5. Do the same for second subnet (*Public Subnet AZ2*)
 
-a) Select the 1st subnet (Public Subnet AZ1)
+### VII. Create a Public Route Table, add a route and associate the 2 public subnets (this determines where network traffic is directed from our gateway or subnet)
+  1. With our VPC still filtered, we will see one route table (which is the default, and is private, generally called the main)
+  2. On the left side, select Route tables -> Create route table
+  3. Under Name, give a name (we will use ***Public Route Table***)
+  4. Next, select the VPC where we want to create the route table (we will select ***My VPC*** from the dropdown)
+  5. Click on create route table ![alt text](image-6.png)
+  6. To add a route, under the route tab, click Edit routes -> Add route
+  7. Under destination, enter ***0.0.0.0/0***, under target select our internet gateway (we will select ***My Internet gateway***), then save changes
+  8. To associate the public subnets to this route table, under the Subnet associations tab, click Edit subnet associations
+  9. At this moment, we will see the 2 non-associated subnets in the VPC, select both *Public Subnet AZ1* and *Public Subnet AZ2*
+  10. Save associations ![alt text](image-7.png) 
+  ![alt text](image-8.png)
 
-b) Goto to Actions -> Edit subnet settings
+### VIII. Create our 4 private subnets
 
-c) Under Auto-assign IP settings, enable the check box
+Follow the same steps in **(V)** above to create the 4 subnets under our VPC with the following details:
+  1. 1st Private subnet => Name: ***Private App Subnet AZ1***, availability zone: ***us-east-1a***, IPv4 CIDR: ***20.1.2.0/24***
+  2. 2nd Private subnet => Name: ***Private App Subnet AZ2***, availability zone: ***us-east-1b***, IPv4 CIDR: ***20.1.3.0/24***
+  3. 3rd Private subnet => Name: ***Private Data Subnet AZ1***, availability zone: ***us-east-1a***, IPv4 CIDR: ***20.1.4.0/24***
+  4. 4th Private subnet => Name: ***Private Data Subnet AZ2***, availability zone: ***us-east-1b***, IPv4 CIDR: ***20.1.5.0/24***
+  5. We can filter by our VPC and see the total 6 subnets. ![alt text](image-9.png)
 
-d) Scroll down and click save
+***FACTS:***
+  *// Any route table that directly routes traffic to the internet via an internet gateway is considered a public route table*
+  *// Any subnet associated with a public route table is considered a public subnet*
+  *// A default route table is created when you create a vpc and it’s private by default, it’s also called the main route table*
+  *// The default route table routes traffic within the VPC*
+  *// Any subnet that is not explicitly associated to a route table is automatically associated with the default route table and hence **considered private subnets*
+  *// The 4 subnets created in (VIII) above are all private*
 
-e) Do the same for 2nd subnet (Public Subnet AZ2)
+## Step 2: Create Nat Gateways, Private Route tables in the first and second Availability Zones
 
+We will create 2 Nat gateways in both Public subnets, create 2 private route tables in AZ1 and AZ2 respectively with each having a route to the internet via the Nat gateway, then we will associate both private app subnets and private data subnets in AZ1 to the route table in AZ1, likewise, both private app subnets and private data subnets in AZ2 to the route table in AZ2. We will make sure to be in the right region.
 
-VII — Create a Public Route Table, add a route and associate the 2 public subnets (this is used by the VPC router to control how traffic data is directed)
+### I. Create Nat Gateways
+  1. On the VPC dashboard, on the left side, select Nat Gateways -> Create Nat gateway
+  2. Give it a name (we will use ***Nat Gateway AZ1***) and click Create internet gateway
+  3. Select the subnet we want to create the Nat Gateway, (it will be ***Public Subnet AZ1***)
+  4. Connection type, select ***Public***
+  5. Under Elastic IP allocation ID, click on ***Allocate Elastic IP*** (this will allocate an elastic IP to this Nat gateway)
+  6. Click ***Create NAT gateway***.
+  7. Repeat steps (1) to (6) to create 2nd Nat Gateway with name: ***Nat Gateway AZ2*** and subnet: ***Public Subnet AZ2*** ![alt text](image-10.png)
 
-a) With your VPC still filtered, you will see one route table (which is the default and is private, generally called the main)
+### II. Create Route Tables and add routes
+1. On the left side, select Route tables -> Create route table
+2. Under Name, give a name (it will be ***Private Route Table AZ1***)
+3. Select the VPC from the dropdown list we want to create this route table in (in our project, it will be ***My VPC***)
+4. To add a route, under the route tab, click Edit routes -> Add route
+5. Under destination, enter ***0.0.0.0/0***, under target, select a Nat gateway (***Nat Gateway AZ1***) from dropdown, then save changes
+6. While still in “Private Route Table AZ1”, to associate the private subnets to this route table, under the Subnet associations tab, click Edit subnet associations
+7. At this moment we will see the 4 non-associated subnets in our VPC, select both Private App Subnet AZ1 and Private Data Subnet AZ1
+8. Save associations
+9. Repeat steps (1) to (8) to create a second route table with name: ***Private Route Table AZ2***, route destination ***0.0.0.0/0*** and target ***Nat Gateway AZ2***, and associate both Private App Subnet AZ2, Private Data Subnet AZ2. ![alt text](image-11.png)
 
-b) On the left side, select Route tables -> Create route table
+***FACTS:***
+*// With this setting, the 4 private subnets can access the internet via the Nat gateways in the public subnets*
 
-c) Under Name, give a name (we will use “Public Route Table”)
-
-a) Next, select the VPC where we want to create the route table (we will select “My VPC” from the dropdown)
-
-d) Click on create route table
-
-e) To add a route, under the route tab, click Edit routes -> Add route
-
-f) Under destination, enter “0.0.0.0/0”, under target select your internet gateway (We will select “My Internet gateway”), then save changes
-
-g) To associate the public subnets to this route table, under the Subnet associations tab, click Edit subnet associations
-
-h) At this moment, we will see the 2 non-associated subnets in the VPC, select both Public Subnet AZ1 and Public Subnet AZ2
-
-i) Save associations
-
-
-
-VIII — Create our 4 private subnets
-
-Follow the same steps nin (V) above to create the 4 subnets under our VPC with the following details:
-
-a) 1st Private subnet => Name: Private App Subnet AZ1, availability zone: us-east-1a, IPv4 CIDR: 20.1.2.0/24
-
-b) 2nd Private subnet => Name: Private App Subnet AZ2, availability zone: us-east-1b, IPv4 CIDR: 20.1.3.0/24
-
-c) 3rd Private subnet => Name: Private Data Subnet AZ1, availability zone: us-east-1a, IPv4 CIDR: 20.1.4.0/24
-
-d) 4th Private subnet => Name: Private Data Subnet AZ2, availability zone: us-east-1b, IPv4 CIDR: 20.1.5.0/24
-
-e) We can filter by our VPC and see the total 6 subnets.
-
-
-FACTS:
-
-// Any route table that directly routes traffic to the internet via an internet gateway is considered a public route table
-
-// Any subnet associated with a public route table is considered a public subnet
-
-// A default route table is created when you create a vpc and it’s private by default, it’s also called the main route table
-
-// The default route table routes traffic within the VPC
-
-// Any subnet that is not explicitly associated to a route table is automatically associated with the default route table and hence considered private subnets
-
-// The 4 subnets created in (VIII) above are all private
-
-Step 2: Create Nat Gateways, Private Route tables in the 1st and 2nd Availability Zones
-
-We will create 2 Nat gateways in both Public subnets, create 2 private route table in AZ1 and AZ2 respectively with each having a route to internet via the Nat gateway, then we will associate both private app and private data subnets in AZ1 to route table in AZ1, likewise both private app and private data subnets in in AZ2 to route table in AZ2. We make sure to be in the right region.
-
-I — Create Nat Gateways
-
-a) On the VPC dashboard, on the left side, select Nat Gateways -> Create Nat gateway
-
-b) Give it a name (we will use “Nat Gateway AZ1”) and click Create internet gateway
-
-c) Select the subnet we want to create the Nat Gateway, (it will be Public Subnet AZ1)
-
-d) Connection type, select Public
-
-e) Under Elastic IP allocation ID, click on Allocate Elastic IP (this will allocate an elastic IP to this Nat gateway)
-
-f) Click Create NAT gateway.
-
-g) Repeat steps (a) to (f) to create 2nd Nat Gateway with name: “Nat Gateway AZ2” and subnet: “Public Subnet AZ2”
-
-
-II — Create Route Tables and add routes
-
-a) On the left side, select Route tables -> Create route table
-
-b) Under Name, give a name (it will be “Private Route Table AZ1”)
-
-c) Select the VPC from the dropdown list you want to create this route table in (in our project, it will be “My VPC”)
-
-d) To add a route, under the route tab, click Edit routes -> Add route
-
-e) Under destination, enter 0.0.0.0/0, under target select a Nat gateway (select “Nat Gateway AZ1” from dropdown), then save changes
-
-f) While still in “Private Route Table AZ1”, to associate the private subnets to this route table, under the Subnet associations tab, click Edit subnet associations
-
-g) At this moment we will see the 4 non-associated subnets in our VPC, select both Private App Subnet AZ1 and Private Data Subnet AZ1
-
-h) Save associations
-
-i) Repeat steps (a) to (h) to create 2nd route table with name: Private Route Table AZ2, route destination 0.0.0.0/0 and target Nat Gateway AZ2, and associate both Private App Subnet AZ2, Private Data Subnet AZ2.
-
-FACTS:
-
-// With this setting, the 4 private subnets can access the internet via the Nat gateways in the public subnets
-
-
-Step 3: Create Security Groups
-
-We will create 5 security groups; Application Load Balancer (ALB) Security Group, SSH Security Group, Webserver Security Group, Database Security Group and EFS Security Group, EIC Endpoint Security Group, EC2-Instance Security Group. This is to add a layer 3 and 4 (network/Transport layer of the OSI model) security to our infrastructure by controlling what is allowed in and out of a resource within our VPC.
+## Step 3: Create Security Groups
+We will create the following security groups; Application Load Balancer (ALB) Security Group, SSH Security Group, Webserver Security Group, Database Security Group, EFS Security Group, EIC Endpoint Security Group, EC2-Instance Security Group. This is to add a layer 3 and 4 (network/Transport layer of the OSI model) security to our infrastructure by controlling what is allowed in and out of a resource within our VPC.
 
 - eic-endpoint-sg: Open outbound traffic on port 22 and use the VPC CIDR for the source destination.
 
 - ec2-instance-sg: Open inbound traffic on port 22 and use the eic-endpoint-sg for the source destination.
 
-I — ALB Security Group (Port: 80, 443 and source: 0.0.0.0/0 for anywhere on the internet)
+### I. ALB Security Group
+Inbound Rules:
+- HTTP (80),   source: 0.0.0.0/0 (from anywhere)
+- HTTPS (443), source: 0.0.0.0/0 (from anywhere)
 
-Here we open port 80 (HTTP) and port 443 (HTTPS) with source coming from anywhere (0.0.0.0/0) on the internet
+  1. On the VPC dashboard, on the left side, select Security Groups -> Create security group
+  2. Give it a name (it will be ***ALB Security Group***), use same name as description (or anything of your choice)
+  3. Under VPC, remove the default selected vpc and select our VPC (***My VPC***) from the dropdown list
+  4. Under Inbound rules, click Add rule, under Type, select ***HTTP*** (port 80), under source, type ***0.0.0.0/0***
+  5. Repeat (4) and add ***HTTPS*** (port 443) rule with source ***0.0.0.0/0***
+  6. Scroll down and click create security group
 
-a) On the VPC dashboard, on the left side, select Security Groups -> Create security group
+### II. SSH Security Group
+Inbound Rule:
+- SSH (22), source: Our IP address
 
-b) Give it a name (it will be ALB Security Group), use same name as description
+  1. Follow the steps in (I) above with following details, name: ***SSH Security Group***, Type: ***SSH*** (port 22), source: select ***My IP***
+  2. Scroll down and click create security group
 
-c) Under VPC, remove the default selected vpc and select our VPC (“My VPC” from the dropdown list)
+### III. EIC Endpoint Security Group
+Outbound Rule:
+- SSH (22), source: our VPC CIDR block (in our project, it is ***20.1.0.0/16***)
 
-d) Under Inbound rules, click Add rule, under Type, select HTTP (port 80), under source, type “0.0.0.0/0”
+  1. On the VPC dashboard, on the left side, select Security Groups -> Create security group
+  2. Give it a name (it will be ***EIC Endpoint Security Group***), use same name as description
+  3. Under VPC, remove the default selected vpc and select our VPC (***My VPC***) from the dropdown list
+  4. Under Outbound rules, click Add rule, under Type, select ***SSH*** (port 22), under source, type ***20.0.0.0/16***
+  5. Scroll down and click create security group
 
-e) Repeat (d) and add HTTPS (port 443) rule with source “0.0.0.0/0”
+### IV. EC2-Instance Security Group
+Inbound Rules:
+- SSH (22), source: EIC Endpoint Security Group
+- SSH (22), source: Our IP address
+This enables us connect directly to any ec2 instance in any subnet, public or private in our vpc without the use of keypairs
 
-f) Scroll down and click create security group
+  1. Follow the steps in (I) and create a security group with name ***EC2-Instance Security Group*** with 2 inbound rules as stated above
+  2. Scroll down and click create security group
 
-II — SSH Security Group (Port: 22 and source: our private IP address)
+### V. Webserver Security Group
+Inbound Rules:
+- HTTP (80),   source: ALB Security Group
+- HTTPS (443), source: ALB Security Group
+- SSH (22),    source: SSH Security Group
 
-Here we open port 22 (SSH) with source coming from our IP address
+  1. Follow the steps in (I) above with inbound rules details as stated above
+  2. Scroll down and click create security group
 
-a) Follow the steps in (I) above with following details, name: SSH Security Group, Type: SSH (port 22), source: select “My IP”
+### VI. Database Security Group (Port: 3306 with source: Webserver security group)
+Inbound Rule:
+- MYSQL/Aurora (3306), source: Webserver Security Group
 
-b) Scroll down and click create security group
+  1. Follow the steps in (I) above with inbound rules details as stated above
+  2. Scroll down and click create security group
 
-III — EIC Endpoint Security Group (Outbound Port: 22 and source: our VPC CIDR block, 20.0.0.0/16)
+### VII. EFS Security Group
+Inbound Rules:
+- NFS (2049),   source: Webserver Security Group
+- SSH (22), source: SSH Security Group
 
-Here we open outbound port 22 (SSH) with source coming from VPC CIDR block (20.1.0.0/16) on the internet
-
-a) On the VPC dashboard, on the left side, select Security Groups -> Create security group
-
-b) Give it a name (it will be EIC Endpoint Security Group), use same name as description
-
-c) Under VPC, remove the default selected vpc and select our VPC (“My VPC” from the dropdown list)
-
-d) Under Outbound rules, click Add rule, under Type, select SSH (port 22), under source, type “20.0.0.0/16”
-
-e) Scroll down and click create security group
-
-IV — EC2-Instance Security Group (Port: 22 and source: EIC Endpoint Security Group, Port: 22 and source: our private IP address)
-
-Here we open port 22 (SSH) with source coming from EIC Endpoint Security Group. This will enable us connect directly to any ec2 instance in any subnet (public and private) in our vpc without the of keypairs
-
-a) Follow the steps in (I) and create a security group with name EC2-Instance Security Group having 2 inbound rules with following details;
-
-Type: SSH (port 22), source: select “EIC Endpoint Security Group”
-
-Type: SSH (port 22), source: select “Your IP address”
-
-b) Scroll down and click create security group
-
-V — Webserver Security Group (Port: 80, 443 with source: ALB security group, port 22 with source: ssh security group)
-
-Here we open port 80 (HTTP) and port 443 (HTTPS) with source coming from ALB Security group, and port 22 (SSH) with source coming from SSH Security Group
-
-a) Follow the steps in (I) above with following details, name: Webserver Security Group, Type: HTTP (port 80), source: select “ALB Security Group”
-
-b) Repeat (a) and add another rule with Type: HTTPS (port 80), source: select “ALB Security Group”
-
-c) Add another rule with Type: SSH (port 22), source “EC2-Instance Security Group”
-
-d) Scroll down and click create security group
-
-VI — Database Security Group (Port: 3306 with source: Webserver security group)
-
-Here we open port 3306 (HTTP) with source coming from Webserver Security group
-
-a) Follow the steps in (I) above with following details, name: Database Security Group, Type: MySQL/Aurora (port 3306), source: select “Webserver Security Group”
-
-b) Scroll down and click create security group
-
-VII — EFS Security Group (Port: 2049 with source: Webserver security group, port 22 with source: ssh security group)
-
-Here we open port 2049 (HTTP) with source coming from Webserver Security group, port 22 (SSH) with source: SSH Security Group
-
-a) Follow the steps in (I) above with following details, name: EFS Security Group, Type: NFS (port 2049), source: select “Webserver Security Group”
-
-b) Repeat (a) and add another rule with Type: SSH (port 22), source: select “EC2-Instance Security Group”
-
-c) Scroll down and click create security group
-
-d) While the EFS security group page, click on Edith inbound rule -> Add another rule with Type: NFS (port 2049), source EFS Security Group”
-
-e) Scroll down and click safe rule
+  1. Follow the steps in (I) above with inbound rules details as stated above
+  2. Scroll down and click create security group
+  3. While still on the EFS security group page, click on Edit inbound rule -> Add another rule with Type: ***NFS*** (port 2049), source: ***EFS Security Group***
+  4. Scroll down and click safe rule ![alt text](image-12.png)
 
 
 Step 4: Create RDS Instance (database)
