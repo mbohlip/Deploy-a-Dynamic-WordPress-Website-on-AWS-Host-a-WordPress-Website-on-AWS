@@ -10,56 +10,38 @@ Welcome Cloud advocates to another journey of cloud exploration using the provid
 We will be using the architecture diagram above to create a 3-tier VPC. In the first tier, we will have public subnet which will hold resources such as NAT Gateway, Application Load balancer. In the second tier, we will have private subnets containing resources such as our web server and in the third tier, we will have other private subnets which will have the RDS database. We will duplicate these subnets across multiple availability zones (AZ) for high availability and fault tolerance. Resources in our VPC will access the internet via internet and NAT gateways using route tables.
 
 ### I. Create a 3-tier VPC
-
-    a) From the management console, first, select the region to create the VPC, in our case, it will be **“us-east-1”**
-    b. In the Search box, type VPC and select VPC under services
-    c. click on **Create VPC**
-    d. Give a name (we will be using **"My VPC"**)
-    e. In the IPv4 CIDR field, enter an IP address (this is a classless inter-domain routing IP address range), as per our architecture, it will be “**20.1.0.0/16**”
-    f. We will leave IPv6 (**No IPv6 CIDR block**) and tenancy (**Default**) unchanged
-    g. Click **create VPC**
-    h. You can view your VPC by using the filter box and selecting your VPC name.
+  1. From the management console, first, select the region to create the VPC, in our case, it will be ***us-east-1***
+  2. In the Search box, type VPC and select VPC under services
+  3. click on ***Create VPC***
+  4. Give a name (we will be using ***My VPC***)
+  5. In the IPv4 CIDR field, enter an IP address (this is a classless inter-domain routing IP address range), as per our architecture, it will be ***20.1.0.0/16***
+  6. We will leave IPv6 (***No IPv6 CIDR block***) and tenancy (***Default***) unchanged
+  7. Click ***Create VPC***
+  8. We can view your VPC by using the filter box and selecting your VPC name.![alt text](image.png)
 
 ### II. Enable DNS Hostname in your VPC (this will enable it to resolve any domain name specified in a private hosted zone in Route 53)
-
-      a. Select the VPC created in (I) above
-      b. Goto Actions -> Edit DNS hostnames
-      c. Check “Enable DNS hostnames” box and save changes
+  1. Select the VPC created in (I) above
+  2. Goto Actions -> Edit DNS hostnames
+  3. Check the ***Enable DNS hostnames*** box and save changes![alt text](image-1.png)
 
 ### III. Create an Internet gateway for your VPC
+  1. On the VPC page, on the left, select Internet Gateways -> Create internet gateway
+  2. Give it a name (we will use ***My Internet Gateway***) and click Create internet gateway![alt text](image-2.png)
 
-      a. On the VPC page, on the left, select Internet Gateways -> Create internet gateway
-      b. Give it a name (we will use “My Internet Gateway”) and click Create internet gateway
+### IV. Attach the internet gateway created in (III) above to your VPC (this allows instances in the VPC to communicate with the internet)
+  1. Click the Attach button shown on the notification (in green)
+  2. Under Available VPCs, we select our VPC (it will only show VPCs that have no internet gateway attached to it).
+  3. Click ***Attach internet gateway***. The status will now show Attached![alt text](image-3.png) ![alt text](image-4.png)
 
-
-IV — Attach the internet gateway created in (III) above to your VPC (this allows instances in the VPC to communicate with the internet)
-
-a) Click the Attach button shown on the notification (in green)
-
-b) Under Available VPCs, select your VPC (it will only show VPCs that have no internet gateway attached to it).
-
-c) Click Attach internet gateway. The status will now show Attached
-
-
-
-V — Create Public subnets in the 1st and 2nd Availability Zones
-
-a) On the VPC page, select Subnets -> Create subnet
-
-b) Select the VPC where you want to create your subnet from the dropdown (in our project it will be “My VPC”)
-
-c) Under Subnet name, enter a name (we will be using “Public Subnet AZ1”)
-
-d) Under Availability Zone, select “us-east-1a” (according to our reference architecture)
-
-e) Under IPv4 CIDR block, enter “20.1.0.0/24”
-
-f) Click Create subnet
-
-g) Repeat steps (a) to (e) and create the 2nd subnet with name as “Public Subnet AZ2”, availability zone as “us-east-1b” and IPv4 CIDR as “20.1.1.0/24”
-
-h) Filter by your VPC to see the 2 subnets just created
-
+### V. Create Public subnets in the 1st and 2nd Availability Zones
+  1. On the VPC page, select Subnets -> Create subnet
+  2. Select the VPC where we want to create the subnet from the dropdown (in our project it will be ***My VPC***)
+  3. Under Subnet name, enter a name (we will be using ***Public Subnet AZ1***)
+  4. Under Availability Zone, select ***us-east-1a*** (according to our reference architecture)
+  5. Under IPv4 CIDR block, enter ***20.1.0.0/24***
+  6. Click Create subnet
+  7. Repeat steps (a) to (e) and create the 2nd subnet with name as ***Public Subnet AZ2***, availability zone as ***us-east-1b*** and IPv4 CIDR as ***20.1.1.0/24***
+  8. Filter by our VPC to see the 2 subnets just created ![alt text](image-5.png)
 
 VI — Enable the Auto-assign IP settings for the 2 public subnets (this enables any instance launch in these subnets to be assigned a public IPv4 address
 
