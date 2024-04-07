@@ -176,133 +176,87 @@ Inbound Rules:
   1. Follow the steps in (I) above with inbound rules details as stated above
   2. Scroll down and click create security group
   3. While still on the EFS security group page, click on Edit inbound rule -> Add another rule with Type: ***NFS*** (port 2049), source: ***EFS Security Group***
-  4. Scroll down and click safe rule ![alt text](image-12.png)
+  4. Scroll down and click safe rule 
+  
+![alt text](image-12.png)
 
+## Step 4: Create RDS Instance (database)
 
-Step 4: Create RDS Instance (database)
+We will create the rds instance in the private data subnet. This will contain our Website database
 
-We will create the rds instance in the private data subnet.
+### I. Create the subnet group.
 
-I — Create the subnet group.
+This allows us to specify in which subnet(s) we want to create our database
 
-This allows us to specify which subnet(s) we want to create our database in
+  1. From the management console, type *rds* in the search box and select RDS under services.
+  2. On the left side, select *Subnet group* -> Create DB Subnet group
+  3. Give it a name (we will call it ***Database subnets***), use same name for the description
+  4. Under VPC, select our VPC (***My VPC***) from the dropdown list
+  5. Under Availability Zones, select the 2 availability zones (it will be ***us-east-1a***, ***us-east-1b***)
+  6. Under subnets, select the IP CIDR block that corresponds to the 2 subnets (***20.1.4.0/24*** for Private data Subnet AZ1, ***20.1.5.0/24*** for Private data subnet AZ2)
+  7. Scroll down and click create
+  ![alt text](image-13.png)
 
-a) From management console, type rds in the search box and select on RDS under services.
+### II. Create database.
+  1. On the left side, select database -> Create database
+  2. For database creation method: ***Standard create***
+  3. engine type: ***MySQL***
+  4. Under version, select the latest version from dropdown list
+  5. template: ***Dev/Test***
+  6. Availability and durability: ***Single DB instance*** (according to our reference architecture, we can select “Multi-AZ DB instance” to create a standby database, but we will select the single so we are not billed)
+  7. DB instance identifier: enter ***test-rds-db***
+  8. Master username: enter a username (we will use ***test24***)
+  9. Master password: enter a password (we will use ***Test1234***)
+  10. DB instance class: ***Burstable classes (includes t classes)***, toggle ***include previous generation classes*** then select ***db.t2.micro*** from the dropdown (this is the free-tier one)
+  11. storage: enter ***20***
+  12. Under VPC, select our vpc name (***My VPC***)
+  13. subnet group: select the subnet we created in step 4(I) above
+  14. public access: select ***No***
+  15. VPC security group: ***Choose existing***, then remove the default security group, select ***Database Security group*** from the dropdown
+  16. Availability Zone: select ***us-east-1b***
+  17. database authentication: check “Password authentication”
+  18. Expand “Additional configuration”, give a name under “initial database name” (we will use ***applicationdb***)
+  19. Leave rest as default and scroll down, then click create database
+  20. It will take some time to create the rds instance. Wait for the status to change to available
+![alt text](image-14.png)
 
-b) On the left side, select Subnet group -> Create DB Subnet group
+## Step 5: Create Elastic File System (EFS)
 
-c) Give it a name (we will call it “Database subnets”. Use same name for the description
+We will create an EFS with mount Target in the private data subnets in each availability zones. This will allow the webservers in the private app subnets to pull application code and configuration files from the same location. The webservers will use the EFS Mount Targets to connect to the EFS
 
-d) Under VPC, select our VPC (“My VPC”) from the dropdown
+  1. From the management console, type *EFS* in the search box and select EFS under services.
+  2. Click on Create File system, then click Customize
+  3. Give it a name (we will call it ***test-EFS***)
+  4. Scroll all the way to Encryption. Check the box if you want to encrypt the file system data. We will uncheck it so we don’t get charged.
+  5. Under tags, give a tag key and tag value, then click Next
+  6. Under VPC, select your VPC (for this project, it is ***My VPC***)
+  7. Under Mount targets, select the subnet for each availability zone. For us-east-1a, select ***Private Data Subnet AZ1***, and ***Private Data Subnet AZ2*** for us-east-1b. For each subnet, under security groups, remove the default security group and select ***EFS Security Group***
+  8. We won’t add any file system policy, leave as default.
+  9. Review, scroll down and click create.
+![alt text](image-15.png)
 
-e) Under Availability Zones, select the 2 availability zones (it will be us-east-1a, us-east-1b)
-
-f) Under subnets, select the IP CIDR block that corresponds to the 2 subnets (20.1.4.0/24 for Private data Subnet AZ1, 20.1.5.0/24 for Private data subnet AZ2)
-
-g) Scroll down and click create
-
-
-II — Create database.
-
-a) On the left side, select database -> Create database
-
-b) For database creation method, we will select “Standard create”
-
-c) Under engine type, select “MySQL”
-
-d) Under version, select the latest version from dropdown list
-
-e) Under template, select “Dev/Test”
-
-f) For Availability and durability, select “Single DB instance” (according to our reference architecture, we can select “Multi-AZ DB instance” to create a standby database, but we select the single so we are not billed)
-
-g) For DB instance identifier, enter “test-rds-db”
-
-h) Master username, enter a username (we will use “test24”)
-
-i) Master password, enter a password (we will use “Test1234”)
-
-j) DB instance class, select “Burstable classes (includes t classes)”, toggle “include previous generation classes” then select db.t2.micro (this is the free one from the dropdown
-
-k) For storage, enter “20”
-
-l) Under VPC, select our vpc name (“My VPC”)
-
-m) Under subnet group, select the subnet we created in step 4(I) above
-
-n) Under public access, select “No”
-
-o) Under VPC security group, select “Choose existing”, then remove the default security group, select “Database Security group” from the dropdown
-
-p) Under Availability Zone, select “us-east-1b”
-
-q) Under database authentication, check “Password authentication”
-
-r) Expand “Additional configuration”, give a name under “initial database name” (we will use “applicationdb”)
-
-s) Leave rest as default and scroll down, then click create database
-
-t) It will take some time to create the rds instance. Wait for the status to change to available
-
-
-Step 5: Create Elastic File System (EFS)
-
-We will create an EFS with mount Target in the private data subnets in each availability zones. They will allow the webservers in the private app subnets to pull application code and configuration files from the same location. The webservers will use the EFS Mount Targets to connect to the EFS
-
-a) From management console, type EFS in the search box and select EFS under services.
-
-b) Click on Create File system, then click Customize
-
-c) Give it a name (we will call it “test-EFS”)
-
-d) Scroll all the way to Encryption. Check the box if you want to encrypt the file system data. We will uncheck it so we don’t get charged.
-
-e) Under tags, give a tag key and tag value, then click Next
-
-f) Under VPC, select your VPC (for this project, it is “My VPC”)
-
-g) Under Mount targets, select the subnet for each availability zone. For us-east-1a, select Private Data Subnet AZ1, and Private Data Subnet AZ2 for us-east-1b. For each subnet, under security groups, remove the default security group and select “EFS Security Group”
-
-h) We won’t add any file system policy, leave as default.
-
-i) Review, scroll down and click create.
-
-
-Step 6: Launch the Setup Server (EC2 Instance)
+## Step 6: Launch the Setup Server (EC2 Instance)
 
 We will launch an ec2 instance that will be used to install WordPress.
+  1. From the management console, type *EC2* in the search box and select EC2 under services.
+  2. On the left side, select Instances -> Launch instances
+  3. Give it a name (it will be ***setup server***)
+  4. Under Quick Start tab -> Amazon Linux, select ***Amazon Linux 2023 AMI*** (it’s free within the Free Tier period)
+  5. instance type: select ***t2.micro*** (which is also free)
+  6. key pair name: select ***Proceed without a key pair*** (since we’ll use eic endpoint)
+  7. Click “Edit” under network settings
+  8. Under VPC, select our VPC (***My VPC***), and select ***Public Subnet AZ1*** under subnet
+  9. Auto-assign public IP: select ***Enabled***
+  10. Check *Select existing security group* and choose ***EC2-Instance Security Group***, ***ALB Security Group*** and ***Webserver Security Group***
+  11. Scroll to the right, review the settings and click ***launch instance***
+  12. Wait for some time for the instance state change to ***running*** and status check to be ***2/2 checks Passed***
 
-a) From management console, type EC2 in the search box and select EC2 under services.
-
-b) On the left side, select Instances -> Launch instances
-
-c) Give it a name (it will be “setup server”)
-
-d) Under Quick Start tab -> Amazon Linux, select “Amazon Linux 2023 AMI” (it’s free within the Free Tier period)
-
-e) Under instance type, select “t2.micro” (which is also free)
-
-f) Under key pair name, select “Proceed without a key pair” (since we’ll use eic endpoint)
-
-g) Click “Edit” under network settings
-
-h) Under VPC, select our VPC (“My VPC”), and select “Public Subnet AZ1” under subnet
-
-i) Auto-assign public IP, select “Enabled”
-
-j) Check “Select existing security group” and choose “EC2-Instance Security Group, ALB Security Group and Webserver Security Group”
-
-k) Scroll to the right, review the settings and click “launch instance”
-
-l) Wait for some time for the instance state = “running” and status check = “2/2 checks Passed”
-
-Step 7: SSH into the EC2 instance (launched in step 6)
+## Step 7: SSH into the EC2 instance (launched in step 6)
 
 Here we will use EC2 instance connect endpoint (eice) to ssh into our instance.
-
 For the step-by-step process to create an EICE and ssh to the EC2 instance, click here to follow the guide.
 
-Step 8: Install and configure WordPress
+## Step 8: Install and configure WordPress
 
 I — After we have ssh into the setup server, we will run the following commands:
 
