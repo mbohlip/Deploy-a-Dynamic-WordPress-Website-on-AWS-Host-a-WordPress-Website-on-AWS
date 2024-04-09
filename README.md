@@ -55,7 +55,8 @@ We will be using the architecture diagram above to create a 3-tier VPC. In the f
   2. On the left side, select Route tables -> Create route table
   3. Under Name, give a name (we will use ***Public Route Table***)
   4. Next, select the VPC where we want to create the route table (we will select ***My VPC*** from the dropdown)
-  5. Click on create route table ![alt text](image-6.png)
+  5. Click on create route table 
+  ![alt text](image-6.png)
   6. To add a route, under the route tab, click Edit routes -> Add route
   7. Under destination, enter ***0.0.0.0/0***, under target select our internet gateway (we will select ***My Internet gateway***), then save changes
   8. To associate the public subnets to this route table, under the Subnet associations tab, click Edit subnet associations
