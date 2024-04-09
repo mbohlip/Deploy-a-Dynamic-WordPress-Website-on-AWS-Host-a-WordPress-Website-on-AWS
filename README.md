@@ -315,328 +315,225 @@ From EFS page -> select efs ID -> click attach, under ***using the NFS client***
   # restart the webserver 
   service httpd restart
 ```
-II — Configure WordPress
+### II. Configure WordPress
 
-a) Once we have restarted the Apache Web server, from the EC2 (setup server) management console, copy the public IPv4 address and paste in a new browser page (this will enable us finish WordPress installation)
+Once we have restarted the Apache Web server, we need to finish WordPress installation. 
+  1. From the EC2 (setup server) management console, copy the public IPv4 address and paste in a new browser page.
+  2. Enter a Site title (we will use ***test***)
+  3. Enter a username (we will use ***test24***) and password (we will use ***Test1234***)
+  4. Enter an email (we will use ***mpndevops84@gmail.com***) and click ***Install WordPress***
+  5. On the next page, click login, enter your username and password created above and click login.
+![alt text](image-16.png)
 
-b) Enter a Site title (we will use “test”)
+## Step 9: Create Application Load Balancer (ALB)
 
-c) Enter a username (we will use “test24”) and password (we will use “Test1234”)
+We will next create an application load balancer (ALB) that will route traffic to our webservers (ec2 instances) in the private subnet
 
-d) Enter an email (we will use “mpndevops84@gmail.com”) and click “Install WordPress”
+### I. Launch an EC2 instance in each of the Private App Subnet AZ1 and Private App Subnet AZ2
 
-e) On the next page, click login, enter your username and password created above and click login.
+  1. From the management console, type *EC2* in the search box and select EC2 under services.
+  2. On the left side, select Instances -> Launch instances
+  3. Give it a name (it will be ***WebServer AZ1***)
+  4. Under Quick Start tab -> Amazon Linux, select ***Amazon Linux 2023 AMI*** (it’s free within the Free Tier period)
+  5. Under instance type, select ***t2.micro*** (which is also free)
+  6. Under key pair name, select ***Proceed without a key pair*** (since we’ll use eic endpoint)
+  7. Click ***Edit*** under network settings
+  8. Under VPC, select our VPC (***My VPC***), and select ***Private App Subnet AZ1*** under subnet
+  9. Auto-assign public IP, select “Disabled”
+  10. Check “Select existing security group” and choose “EC2-Instance Security Group, and Webserver Security Group”
+  11. Scroll down to “Advanced details” and expand,
+  12. Scroll down to “User data” and enter the bash script below: 
+      *Replace the text ***fs-0b37356f0b8d8f269.efs.us-east-1.amazonaws.com*** (in the echo command) with what we copied in step 8 (I)*
+```bash
+      #!/bin/bash
+      yum update -y
+      sudo yum install -y httpd httpd-tools mod_ssl
+      sudo systemctl enable httpd 
+      sudo systemctl start httpd
+      sudo yum clean metadata
+      sudo yum install php php-common php-pear -y
+      sudo yum install php-{cgi,curl,mbstring,gd,mysqlnd,gettext,json,xml,fpm,intl,zip} -y
+      sudo rpm -Uvh https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
+      sudo rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
+      sudo yum install mysql-community-server -y
+      sudo systemctl enable mysqld
+      sudo systemctl start mysqld
+      echo "fs-0b37356f0b8d8f269.efs.us-east-1.amazonaws.com:/ /var/www/html nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
+      mount -a
+      chown apache:apache -R /var/www/html
+      sudo service httpd restart
+```
+  13. Scroll to the right, review the settings and click ***launch instance***
+  14. Wait for some time for the instance state = “running” and status check = “2/2 checks Passed”
+  15. After launching the first instance, repeat the steps (1) to (14) to launch the second instance with name “WebServer AZ2” in Private App Subnet AZ2
+![alt text](image-17.png)
 
+### II. Create a Target Group
 
-Step 9: Create Application Load Balancer (ALB)
+We will create a target group and put these instances (created in step 9(I) above) in the target group to allow the ALB route traffic to them
+  1. In the ec2 management console, on the left side, under load balancing, select Target groups -> Create target group
+  2. target type: ***instances***
+  3. target group name: give a name (it will be “Test-TG”)
+  4. Protocol: ***HTTP***
+  5. Under VPC, select your vpc (for our project, it is “My VPC”)
+  5. Protocol version: ***HTTP1***
+  6. Under Health checks, select advanced health checks settings
+  7. Under success codes, enter ***200,301,302***
+  8. Click Next
+  9. On the next page, select the instances ***WebServer AZ1*** and ***WebServer AZ2*** and click on ***include as pending below***
+  10. Click create target group
+![alt text](image-18.png)
 
-We will next create an ALB that will route traffic to our webservers (ec2 instances) in the private subnet
+### III. Create an Application Load Balancer
 
-I — Launch an EC2 instance in each of the Private App Subnet AZ1 and Private App Subnet AZ2
+  1. In the ec2 management console, on the left side, under load balancing, select Load Balancers -> Create Load Balancer
+  2. Click create under the Application Load Balancer
+  3. Give it a name (for our project, we will give ***Text-ALB***)
+  4. It will be ***Internet-facing***
+  5. IP address type: ***IPv4***
+  6. Select our VPC (for our project, it will be ***My VPC***)
+  7. Under mappings, we will select our 2 public subnets, so select ***us-east-1a*** and check ***Public Subnet AZ1***, similarly on ***us-east-1b***, check ***Public Subnet AZ2***
+  8. Under Security groups, remove the default and select “ALB Security Group” from the dropdown
+  9. Setup HTTP listener on port 80, under Default action, select your target group (***Test-TG***) from the dropdown list
+  10. Scroll down and click Create load balancer
+  11. Wait for the state to change to active.
+  12. Once state is Active, copy the DNS name from the Description tab and paste in a new browser page to see our Website displayed.
+![alt text](image-19.png)
 
-a) From management console, type EC2 in the search box and select EC2 under services.
+### IV. Change the domain settings in the WordPress configuration
 
-b) On the left side, select Instances -> Launch instances
+  1. While still on the website page, at the end of the url link, add ***/wp-admin*** and press enter
+  2. Login to your wordpress website with username and password created in step 8(II)
+  3. On the left side, select settings -> General
+  4. Under general settings, update both the WordPress Address (URL) and Site address (URL) and replace it with the DNS url copied in step III(l) above and remove the forward slash at the end
+  5. Scroll down and save changes.
+  6. It will log you out, just login again and check the website url should have changed.
+![alt text](image-20.png)
 
-c) Give it a name (it will be “WebServer AZ1”)
-
-d) Under Quick Start tab -> Amazon Linux, select “Amazon Linux 2023 AMI” (it’s free within the Free Tier period)
-
-e) Under instance type, select “t2.micro” (which is also free)
-
-f) Under key pair name, select “Proceed without a key pair” (since we’ll use eic endpoint)
-
-g) Click “Edit” under network settings
-
-h) Under VPC, select our VPC (“My VPC”), and select “Private App Subnet AZ1” under subnet
-
-i) Auto-assign public IP, select “Disabled”
-
-j) Check “Select existing security group” and choose “EC2-Instance Security Group, and Webserver Security Group”
-
-k) Scroll down to “Advanced details” and expand,
-
-l) Scroll down to “User data” and enter the bash script below:
-
-#!/bin/bash
-yum update -y
-sudo yum install -y httpd httpd-tools mod_ssl
-sudo systemctl enable httpd 
-sudo systemctl start httpd
-sudo yum clean metadata
-sudo yum install php php-common php-pear -y
-sudo yum install php-{cgi,curl,mbstring,gd,mysqlnd,gettext,json,xml,fpm,intl,zip} -y
-sudo rpm -Uvh https://dev.mysql.com/get/mysql57-community-release-el7-11.noarch.rpm
-sudo rpm --import https://repo.mysql.com/RPM-GPG-KEY-mysql-2022
-sudo yum install mysql-community-server -y
-sudo systemctl enable mysqld
-sudo systemctl start mysqld
-echo "fs-0b37356f0b8d8f269.efs.us-east-1.amazonaws.com:/ /var/www/html nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2 0 0" >> /etc/fstab
-mount -a
-chown apache:apache -R /var/www/html
-sudo service httpd restart
-a) Replace the text “fs-0b37356f0b8d8f269.efs.us-east-1.amazonaws.com” (in the echo command) with what we copied in step 8 (I)
-
-b) Scroll to the right, review the settings and click “launch instance”
-
-c) Wait for some time for the instance state = “running” and status check = “2/2 checks Passed”
-
-d) After launching the first instance, repeat the steps (a) to (o) to launch the second instance with name “WebServer AZ2” in Private App Subnet AZ2
-
-
-II — Create a Target Group
-
-We will create a target group and put these instances in the target group to allow the ALB route traffic to them
-
-a) In the ec2 management console, on the left side, under load balancing, select Target groups -> Create target group
-
-b) Under target type, select “instances”
-
-c) Under target group name, give a name (it will be “Test-TG”)
-
-d) Protocol is “HTTP”
-
-e) Under VPC, select your vpc (for our project, it is “My VPC”)
-
-f) Protocol version is “HTTP1”
-
-g) Under Health checks, select advanced health checks settings
-
-h) Under success codes, enter “200,301,302”
-
-i) Click Next
-
-j) On the next page, select the instances “WebServer AZ1” and “WebServer AZ2” and click on “include as pending below”
-
-k) Click create target group
-
-
-II — Create an Application Load Balancer
-
-a) In the ec2 management console, on the left side, under load balancing, select Load Balancers -> Create Load Balancer
-
-b) Click create under the Application Load Balancer
-
-c) Give it a name (for our project, we will give “Text-ALB”)
-
-d) It will be “Internet-facing”
-
-e) IP address type is “IPv4”
-
-f) Select our VPC (for our project, it will be “My VPC”)
-
-g) Under mappings, we will select our 2 public subnets, so select us-east-1a and check “Public Subnet AZ1”, similarly on us-east-1b, check “Public Subnet AZ2”
-
-h) Under Security groups, remove the default and select “ALB Security Group” from the dropdown
-
-i) Setup HTTP listener on port 80, under Default action, select your target group (“Test-TG”) from the dropdown list
-
-j) Scroll down and click Create load balancer
-
-k) Wait for the state to change to active.
-
-l) Once state is Active, copy the DNS name from the Description tab and paste in a new browser page to see our Website displayed.
-
-
-III — Change the domain settings in the WordPress configuration
-
-a) While still on the website page, at the end of the url link, add “/wp-admin” and press enter
-
-b) Login to your wordpress website with username and password created in step 8(II)
-
-c) On the left side, select settings -> General
-
-d) Under general settings, update both the WordPress Address (URL) and Site address (URL) and replace it with the DNS url copied in step II(l) above and remove the forward slash at the end
-
-e) Scroll down and save changes.
-
-f) It will log you out, just login again and check the website url should have changed.
-
-
-IV — Terminate the Setup Server
+### V. Terminate the Setup Server
 
 Now we have 2 webservers up and running and can access them using the DNS url of the ALB, so we don’t need the setup server anymore, hence we will terminate it
+  1. From the EC2 management console, click on instance (running)
+  2. Select the setup server, goto to instance state -> Terminate instance
+  3. Then click terminate.
 
-a) From the EC2 management console, click on instance (running)
+## Step 10: Register a Domain name in Route 53
 
-b) Select the setup server, goto to instance state -> Terminate instance
+We will register a domain name to allow users to access our website using a personalised domain name instead of using the ALB DNS url.
+Click the link below to follow the step-by-step guide to register a domain in Route 53
+https://medium.com/@mbohlip/register-a-domain-name-in-route-53-04f061b933a1
+![alt text](image-21.png)
 
-c) Then click terminate.
-
-Step 10: Register a Domain name in Route 53
-
-We will register a domain name to allow users to access our website instead of using the ALB DNS url.
-
-Click here to follow the step-by-step guide to register a domain in Route 53
-
-
-Step 11: Create a Record Set in Route 53 and update WordPress admin portal
+## Step 11: Create a Record Set in Route 53 and update WordPress admin portal
 
 A record set in route 53 will enable us access our website using our domain name registered in step 10 above.
+  1. From the AWS management console, search ***Route 53*** in the search box and select Route 53 under services
+  2. On Route 53 Dashboard, click on ***Hosted zone***
+  3. Click your domain name registered in step 10 (in our case, it will ***mpndevops.com***)
+  4. Under Records, click Create record
+  5. Record name will be ***www*** (for the subdomain)
+  6. Record type will be ***A-Routes traffic to an IPv4 address and some AWS resources***
+  7. Toggle Alias button ***ON***
+  8. Under Route traffic to, select:
+     ***Alias to Application and Classic Load Balancer*** for endpoint,
+     ***US East (N. Virginia) [us-east-1]*** for the region,
+     for Load balancer, select the ALB we created in step 9 (III) from the dropdown list
+  9. Click Create records
+  10. Click view status
+  11. Wait for the status to change from Pending to ***INSYNC***
+  12. Select the record just created, copy the record name under record details, paste it in a browser page and press Enter
+  13. Copy the Url from the browser (in our case, it will ***http://www.mtndevops.com***)
+  14. At the end of the url, add ***/wp-admin*** and press ENTER, then login with your username and password
+  15. On the left side, select settings -> General
+  16. Under general settings, update both the WordPress Address (URL) and Site address (URL) and replace it with the url copied in step (13) above and remove the forward slash at the end
+  17. Scroll down and save changes.
+  18. It will log you out, just login again and check the website url should have changed.
+![alt text](image-22.png)
 
-a) From AWS management console, search Route 53 in the search box and select Route 53 under services
+## Step 12: Register for an SSL Certificate in AWS Certificate Manager (ACM)
 
-b) On Route 53 Dashboard, click on Hosted zone
+We will register a free SSL certificate in AWS Certificate Manager (ACM). If you already have a domain name with an SSL certificate, you can skip this step. This enables us to encrypt all communications between the browser and our webservers. This is referred to as Encryption in Transit
+  1. From the AWS management console, search for Certificate manager in the search box and select Certificate manager under services
+  2. In the Certificate manager console, click ***Request certificate***
+  3. Select ***Request a Public certificate***, and click Next
+  4. Under domain name, we will enter our domain we registered in step 10 above (we will use ***mpndevops.com***)
+  5. Click Add another name to this certificate and enter “*.<your domain name>” (in our case, it will be “*.mpndevops.com”)
+  6. Under validation method, select DNS validation
+  7. Scroll down and click Request
+  8. Under view certificate, the status will be “Pending validation”
+  9. To validate, we need to create a record set in Route 53 to show this domain name belongs to us
+  10. Click Create record in Route 53
+  11. Then select both domain name and the wild card (“mpndevops.com”, “*.mpndevops.com”)
+  12. Click Create records
+  13. Click refresh and status will be “issued”
+![alt text](image-23.png)
+![alt text](image-24.png)
 
-c) Click your domain name registered in step 10 (In our case, it will “mpndevops.com”)
-
-d) Under Records, click Create record
-
-e) Record name will be “www” (for the subdomain)
-
-f) Record type will be “A-Routes traffic to an IPv4 address and some AWS resources”
-
-g) Toggle Alias button “ON”
-
-h) Under Route traffic to, select “Alias to Application and Classic Load Balancer” for endpoint
-
-“US East (N. Virginia) [us-east-1]” for the region
-
-For Load balancer, select the ALB we created from the dropdown
-
-i) Click Create records
-
-j) Click view status
-
-k) Wait for the status to change from Pending to INSYNC
-
-l) Select the record just created, copy the record name under record details, paste it in a browser page and press Enter
-
-m) Copy the Url from the browser (in our case, it will http://www.mtndevops.com)
-
-n) At the end of the url, add “wp-admin”, then login with your username and password
-
-o) On the left side, select settings -> General
-
-p) Under general settings, update both the WordPress Address (URL) and Site address (URL) and replace it with the url copied in step (m) above and remove the forward slash at the end
-
-q) Scroll down and save changes.
-
-r) It will log you out, just login again and check the website url should have changed.
-
-
-Step 12: Register for an SSL Certificate in AWS Certificate Manager (ACM)
-
-We will register a free SSL certificate in ACM. If you already have a domain name with an SSL certificate, you can skip this step. This enables us to encrypt all communications between the browser and our webservers. This is referred to as Encryption in Transit
-
-a) From AWS management console, search for Certificate manager in the search box and select Certificate manager under services
-
-b) In the Certificate manager console, click Request certificate
-
-c) Select Request a Public certificate, and click Next
-
-d) Under domain name, we will enter our domain we registered in step 10 above (we will use mpndevops.com)
-
-e) Click Add another name to this certificate and enter “*.<your domain name>” (in our case, it will be “*.mpndevops.com”)
-
-f) Under validation method, select DNS validation
-
-g) Scroll down and click Request
-
-h) Under view certificate, the status will be “Pending validation”
-
-i) To validate, we need to create a record set in Route 53 to show this domain name belongs to us
-
-j) Click Create record in Route 53
-
-k) Then select both domain name and the wild card (“mpndevops.com”, “*.mpndevops.com”)
-
-l) Click Create records
-
-m) Click refresh and status will be “issued”
-
-
-
-Step 13: Create an HTTPS Listener for the Application Load Balancer (ALB)
+## Step 13: Create an HTTPS Listener for the Application Load Balancer (ALB)
 
 We will create an HTTPS listener for our ALB to secure our website
 
-I — Create an HTTPS listener
+### I. Create an HTTPS listener
 
-a) From AWS management console, search for EC2 in the search box and select EC2 under services
+  1. From the AWS management console, search for EC2 in the search box and select EC2 under services
+  2. On the left, under Load balancing, select ***Load Balancers***, goto the Listeners tab and click ***Add Listener***
+  3. Under Protocol, select ***HTTPS (443)***, then default actions will be ***Forward to***
+  4. Under target group, select our target group from the dropdown list (in our case will ***Test-TG***)
+  5. Under default certificate from ACM, select our certificate from the dropdown
+  6. Click Add
 
-b) On the left, under Load balancing, select Load Balancers, goto the Listeners tab and click Add Listener
+  ### II. Edit HTTP listener to redirect traffic to HTTPS
+  
+  We now need to modify the HTTP listener to redirect all HTTP traffic to HTTPS.
+  1. Select the HTTP listener and click on Edit
+  2. Under default actions, select ***redirect***
+  3. We will redirect it to HTTPS, type ***443***
+  4. Scroll down and save changes
 
-c) Under Protocol, select HTTPS (443), then default actions will be Forward to
-
-d) Under target group, select your target group from the dropdown (in our case will “Test-TG”)
-
-e) Under default certificate from ACM, select your certificate from the dropdown
-
-f) Click Add
-
-II — Edit HTTP listener to redirect traffic to HTTPS
-
-a) Select the HTTP listener and click on Edit
-
-b) Under default actions, select redirect
-
-c) We will redirect it to HTTPS, type 443
-
-d) Scroll down and save changes
-
-III — Edit the wp-config file
+### III. Edit the wp-config file
 
 To make sure our server is secure, we will edit the wp-config file in our webserver
+  1. Using EICE, ssh into one of the webservers in the private subnet (Webserver AZ1 or Webserver AZ2)
+  2. Change to root with the command ***sudo su***
+  3. Type the command ```nano /var/www/html/wp-config.php ```
+  4. Move down to the free space and paste the following code below
+  ```bash
+    /* SSL Settings */
+    define('FORCE_SSL_ADMIN', true);
+    // Get true SSL status from AWS load balancer
+    if(isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+      $_SERVER['HTTPS'] = '1';
+    }
+  ```
+  5. Press ***CTRL+X*** then “***Y***”, then ***“Enter”*** to save and exit the editor
+  6. Go ahead and test your website with https to confirm it’s secured, also test the website with http to confirm it redirects to https
+![alt text](image-25.png)
 
-a) Using EICE, ssh into one of the webservers in the private subnet (Webserver AZ1 or Webserver AZ2)
+## Step 14: Create an Auto Scaling Group (ASG)
 
-b) Change to root with the command “sudo su”
+We are going to create an ASG. This will dynamically scale our webservers in the private subnets based on the demand from users.
 
-c) Type the command “nano /var/www/html/wp-config.php”
-
-d) Move down to the free space and paste the following code below
-
-/* SSL Settings */
-define('FORCE_SSL_ADMIN', true);
-
-// Get true SSL status from AWS load balancer
-if(isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-  $_SERVER['HTTPS'] = '1';
-}
-a) Press “CTRL+X” then “Y”, then “Enter” to save and exit the editor
-
-b) Go ahead and test your website with https to confirm it’s secured, also test the website with http to confirm it redirects to https
-
-
-Step 14: Create an Auto Scaling Group (ASG)
-
-We are going to create an ASG. This will dynamically scale our webservers in the private subnets.
-
-I — Terminate the 2 Webservers
+### I. Terminate the 2 Webservers
 
 First, we will terminate the 2 ec2 instances (“Webserver AZ1” and “Webserver AZ2”)
+  1. From the EC2 dashboard, select instance (running)
+  2. Then select Webserver AZ1 and Webserver AZ2, goto instance state -> Terminate instance
+  3. Click Terminate
 
-a) From the EC2 dashboard, select instance (running)
-
-b) Then select Webserver AZ1 and Webserver AZ2, goto instance state -> Terminate instance
-
-c) Click Terminate
-
-II — Create a launch Template
+### II. Create a launch Template
 
 A launch template has all the configurations on the ec2 that our ASG will use to create instances
-
-a) From the EC2 Management console, on the left, under instances select Launch Templates -> Create launch template
-
-b) Under Launch template name, give it a name (it will be “Test-launch-Template”), enter same name for description
-
-c) Check the box under Auto Scaling Guidance
-
-d) Under Quick Start tab -> Amazon Linux, select “Amazon Linux 2023 AMI” (it’s free within the Free Tier period)
-
-e) Under instance type, select “t2.micro” (which is also free)
-
-f) Under key pair name, select “Proceed without a key pair” (since we’ll use eic endpoint)
-
-g) Under security groups, check “Select existing security group” and choose “Webserver Security Group”
-
-h) Scroll down and click Advance
-
-i) Click on Advance and scroll down to the User Data section
-
-j) In this section, paste the following code
-
+  1. From the EC2 Management console, on the left, under instances select ***Launch Templates*** -> Create launch template
+  2. Under Launch template name, give it a name (it will be ***Test-launch-Template***), enter same name for description
+  3. Check the box under ***Auto Scaling Guidance***
+  4. Under Quick Start tab -> Amazon Linux, select ***Amazon Linux 2023 AMI*** (it’s free within the Free tier period)
+  5. instance type: ***t2.micro*** (which is also free)
+  6. key pair name: ***Proceed without a key pair*** (since we’ll use eic endpoint)
+  7. security groups: check ***Select existing security group*** and choose ***Webserver Security Group***
+  8. Scroll down and click Advance
+  9. Click on Advance and scroll down to the User Data section
+  10. In this section, paste the following code
+```bash
 #!/bin/bash
 yum update -y
 sudo yum install -y httpd httpd-tools mod_ssl
@@ -654,52 +551,35 @@ echo "fs-0b37356f0b8d8f269.efs.us-east-1.amazonaws.com:/ /var/www/html nfs4 nfsv
 mount -a
 chown apache:apache -R /var/www/html
 sudo service httpd restart
-a) After pasting the commands, click Create launch template
+```
+  11. After pasting the commands, click Create launch template
+![alt text](image-26.png)
 
+### III. Create the Auto Scaling Group (ASG)
 
-III — Create the Auto Scaling Group (ASG)
+  1. From the EC2 Management console, on the left, under Auto scaling, select ***Auto Scaling Groups*** -> Create Auto scaling group
+  2. Give it a name (for our project, it will ***Test-ASG***)
+  3. Under launch template, select our launch template from the dropdown list (***Test-launch-Template***), and click on Next
+  4. Under VPC, select our VPC from the dropdown list (for our project ***My VPC***)
+  5. Under availability zones and subnets, select ***Private App AZ1*** and ***Private App AZ2***, and click Next
+  6. Select ***Attach to an existing Load balancer***
+  7. Next select Choose from your load balancer target group
+  8. Select our target group from dropdown list (***Test-TG***)
+  9. Select ***ELB*** under health checks
+  10. We can enable ***Enable group metrics collection within CloudWatch*** and click Next
+  11. Under group size, let’s specify our Desired capacity = 2, Minimum capacity = 1, Maximum capacity = 4
+  12. Scroll down and click Next
+  13. Click ***Add notification***
+  14. Click ***Create a topic***, once completed, click Next
+  15. Under Add tags, click Add tags
+  16. Give it a name and value (name = “Name”, Value = “Test-ASG”), click Nex, review settings and click Create auto scaling group
+  17. At this moment, our ASG will be launching ec2 instances based on our desired capacity (which is 2)
+  18. We can check the instances in EC2, wait for them to pass the “Status checks”, Next check if they are healthly in target group.
+  19. Once this is all ok, we can check our website “www.devops.com”
+![alt text](image-27.png)
+![alt text](image-28.png)
+![alt text](image-29.png)
 
-a) From the EC2 Management console, on the left, under Auto scaling, select Auto Scaling Groups -> Create Auto scaling group
-
-b) Give it a name (for our project, it will “Test-ASG”)
-
-c) Under launch template, select your launch template from the dropdown (“Test-launch-Template”), and click on Next
-
-d) Under VPC, select your VPC from the dropdown (for our project “My VPC”)
-
-e) Under availability zones and subnets, select “Private App AZ1” and “Private App AZ2”, and click Next
-
-f) Select Attach to an existing Load balancer
-
-g) Next select Choose from your load balancer target group
-
-h) Select your target group from dropdown list (“Test-TG”)
-
-i) Select “ELB” under health checks
-
-j) We can enable “Enable group metrics collection within CloudWatch” and click Next
-
-k) Under group size, let’s specify our Desired capacity = 2, Minimum capacity = 1, Maximum capacity = 4
-
-l) Scroll down and click Next
-
-m) Click Add notification
-
-n) Click Create a topic, once completed, click Next
-
-o) Under Add tags, click Add tags
-
-p) Give it a name and value (name = “Name”, Value = “Test-ASG”), click Nex, review settings and click Create auto scaling group
-
-q) At this moment, our ASG will be launching ec2 instance with our desired capacity (2)
-
-r) We can check the instances in EC2, wait for them to pass the “Status checks”, Next check if they are healthly in target group.
-
-s) Once this is all ok, we can check our website “www.devops.com”
-
-
-
-
-Step 15: Install WordPress Theme and Template
+## Step 15: Install WordPress Theme and Template
 
 In this last step, we will give our WordPress website a theme
